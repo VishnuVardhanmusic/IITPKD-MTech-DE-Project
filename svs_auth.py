@@ -472,6 +472,8 @@ app = dash.Dash(__name__, external_stylesheets=["https://stackpath.bootstrapcdn.
 
 auth = dash_auth.BasicAuth(app,USER_PASS_MAPPING)
 
+server = app.server
+
 def create_graph(title):
     return dcc.Graph(
         figure=go.Figure(
@@ -585,4 +587,4 @@ def render_content(tab):
         return create_tab4_content()
 
 if __name__ == '__main__':
-    app.run_server(debug=True)                        
+    app.run_server(debug=False)                        
