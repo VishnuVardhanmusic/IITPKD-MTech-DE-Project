@@ -1,0 +1,6 @@
+{
+    "version":2,
+    "builds": [
+        {"src": "svs_auth.py", "use":"@vercel/python"}
+    ]
+}
