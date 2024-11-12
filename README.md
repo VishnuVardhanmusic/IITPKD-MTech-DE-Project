@@ -15,4 +15,3 @@ aspects of the data.
 1) Data Pre-Processing: Jupyter Notebook, Pandas, Numpy 
 2) DataBase Management: PostgreSQL, pgAdmin 4, SQLAlchemy 
 3) Visualization and Dashboard: plotly, dash
-4) Deployment ---> Vercel ( URL: https://messaging-service-prototype.vercel.app/ )
