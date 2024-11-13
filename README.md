@@ -11,6 +11,7 @@ that optimizes queries and supports complex relationships between entities (such
 actors, directors, etc.). 
 4) Develop a dashboard that can connect to the designed database and visualize various 
 aspects of the data.
+
  ## Tech Stack used
 1) Data Pre-Processing: Jupyter Notebook, Pandas, Numpy 
 2) DataBase Management: PostgreSQL, pgAdmin 4, SQLAlchemy 
@@ -18,5 +19,5 @@ aspects of the data.
 
  ## Steps to execute locally
 1) Download the Code  
-2) Ensure all the libraries in the requirements.txt are present (execute pip install -r requirements.txt)
-3) Run the code by executing (python svs_auth.py)
+2) Ensure all the libraries in the requirements.txt are present (Execute the command >>pip install -r requirements.txt)
+3) Run the code by executing the command >>python svs_auth.py
