@@ -6,10 +6,6 @@ from sqlalchemy.engine import create_engine
 from sqlalchemy.sql import text
 import dash_auth
 
-USER_PASS_MAPPING = {
-    "admin":"1234"
-}
-
 #Defining DB Credentials
 USER_NAME = 'postgres'
 PASSWORD = 'padder'
@@ -47,6 +43,7 @@ class PostgresqlDB:
             print(f'Failed to execute dql commands -- {err}')
             
 db = PostgresqlDB(user_name=USER_NAME,password=PASSWORD,host=HOST,port=PORT,db_name=DATABASE_NAME)
+USER_PASS_MAPPING = {"admin":"1234"}
 
 q00 = text('''SELECT * FROM movies LIMIT 50;''')
 res00=db.execute_dql_commands(q00)
@@ -54,6 +51,28 @@ d00 = []
 for i in res00:
     d00.append([i.uid, i.idi, i.imdb_id, i.popularity, i.budget, i.revenue, i.original_title, i.actor_name, i.director_name, i.runtime, i.genres, i.release_date, i.vote_count, i.vote_average, i.release_year, i.budget_adj, i.revenue_adj])
 df00=pd.DataFrame(data=d00,columns=['uid', 'idi', 'imdb_id', 'popularity', 'budget', 'revenue', 'original_title', 'actor_name', 'director_name', 'runtime', 'genres', 'release_date', 'vote_count', 'vote_average', 'release_year', 'budget_adj', 'revenue_adj'])
+
+q001 = text('''SELECT DISTINCT(original_title),budget
+,budget_adj FROM movies ORDER BY budget DESC LIMIT 15;''')
+res001 = db.execute_dql_commands(q001)
+d001 = []
+v001 = []
+r001 = []
+for i in res001:
+    d001.append(i.original_title)
+    v001.append(i.budget)
+    r001.append(i.budget_adj)
+
+q002 = text('''SELECT DISTINCT(original_title),revenue
+,revenue_adj FROM movies ORDER BY revenue DESC LIMIT 15;''')
+res002 = db.execute_dql_commands(q002)
+d002 = []
+v002 = []
+r002 = []
+for i in res002:
+    d002.append(i.original_title)
+    v002.append(i.revenue)
+    r002.append(i.revenue_adj)
 
 def create_table():
     fig = go.Figure(data=[go.Table(
@@ -384,6 +403,33 @@ def qq11():
 def t2p4():
     return dcc.Graph(figure=qq11())
 
+t2p5 = dcc.Graph(
+    id = 't2p5',
+    figure = {
+        'data' : [
+            {'x' : d001,'y':r001,'type':'hist','name':'Adjusted Budget'},
+            {'x' : d001,'y':v001,'type':'hist','name':'Budget'},
+                
+            ],
+        'layout':{
+                'title': "Top Movie's Actual Budget and the Budget adjusted for inflation"
+            }
+        }
+    )
+
+t2p6 = dcc.Graph(
+    id = 't2p6',
+    figure = {
+        'data' : [
+            {'x' : d002,'y':r002,'type':'hist','name':'Adjusted Revenue'},
+            {'x' : d002,'y':v002,'type':'hist','name':'Revenue'},
+                
+            ],
+        'layout':{
+                'title': "Top Movie's Actual Revenue and the Revenue adjusted for inflation"
+            }
+        }
+    )
 
 ############### PLOTLY FIGURES FOR TAB 3 #####################
 t3p1 = dcc.Graph(
@@ -492,6 +538,9 @@ def create_tab1_content():
             At the same time, there's another Movie with 28.4 Popularity Score but managed only to collect 378 Million Box Office Revenue.'''
                 ,className="mt-3",style={"wordWrap": "break-word","color":"#eb2710"}),], className="col-md-6 col-sm-12"),
         ], className="row"),
+         html.Div([
+            html.Div([html.Br(),t2p6,html.Br(),], className="col-12 text-center"),
+        ], className="row"),
         html.Div([
             html.Div([t1p2,html.H4('''We can conclude that the movie - "The Karate Kid, Part II" stands away from the rest of the competitors by large margin.'''
                 ,className="mt-3",style={"wordWrap": "break-word","color":"#dd810c"}),], className="col-md-6 col-sm-12"),
@@ -507,15 +556,21 @@ def create_tab1_content():
 def create_tab2_content():
     return html.Div([html.Br(),
         html.Div([
-            html.Div([html.Br(),t2p3(),html.Br(),], className="col-12 text-center"),
-        ], className="row"),
-                     
-        html.Div([
             html.Div([t2p1,html.H4("Actor having the Highest Average Vote in Scientific-Fictional Movies",className="mt-3"),]
                      , className="col-md-4 col-sm-12",style={"wordWrap": "break-word","color":"#f57105"}),
             html.Div([t2p2,html.H4("We can infer that Comedy and Drama Genre films out performed near the Box Office",className="mt-3"),]
                      , className="col-md-8 col-sm-12",style={"wordWrap": "break-word","color":"#3df505"}),
         ], className="row"),
+                     
+        html.Div([
+            html.Div([html.Br(),t2p5,html.Br(),], className="col-12 text-center"),
+        ], className="row"),
+                     
+        html.Div([
+            html.Div([html.Br(),t2p3(),html.Br(),], className="col-12 text-center"),
+        ], className="row"),
+                     
+        
         
         html.Div([
             html.Div([html.Br(),t2p4(),html.Br(),], className="col-12 text-center"),
