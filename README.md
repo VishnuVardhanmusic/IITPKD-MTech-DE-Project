@@ -15,3 +15,8 @@ aspects of the data.
 1) Data Pre-Processing: Jupyter Notebook, Pandas, Numpy 
 2) DataBase Management: PostgreSQL, pgAdmin 4, SQLAlchemy 
 3) Visualization and Dashboard: plotly, dash
+
+ ## Steps to execute locally
+1) Download the Code  
+2) Ensure all the libraries in the requirements.txt are present (execute pip install -r requirements.txt)
+3) Run the code by executing (python svs_auth.py)
