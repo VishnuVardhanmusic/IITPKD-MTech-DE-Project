@@ -2,9 +2,11 @@ from dash import dcc, html, dash, Input, Output
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+import psycopg2
+import sqlalchemy
+import dash_auth
 from sqlalchemy.engine import create_engine
 from sqlalchemy.sql import text
-import dash_auth
 
 #Defining DB Credentials
 USER_NAME = 'postgres'
@@ -45,12 +47,39 @@ class PostgresqlDB:
 db = PostgresqlDB(user_name=USER_NAME,password=PASSWORD,host=HOST,port=PORT,db_name=DATABASE_NAME)
 USER_PASS_MAPPING = {"admin":"1234"}
 
-q00 = text('''SELECT * FROM movies LIMIT 50;''')
+qr00 = text('''SELECT * FROM rmovies LIMIT 50;''')
+resr00=db.execute_dql_commands(qr00)
+dr00 = []
+for i in resr00:
+    dr00.append([i.id,i.imdb_id,i.popularity,i.budget,i.revenue,i.original_title,i.castc,i.homepage,i.director,i.tagline,i.keywords,i.overview,
+                i.runtime,i.genres,i.production_companies,i.release_date,i.vote_count,i.vote_average,i.release_year,i.budget_adj,i.revenue_adj])
+dfr00=pd.DataFrame(data=dr00,columns=['id','imdb_id','popularity','budget','revenue','original_title','cast','homepage','director','tagline','keywords','overview','runtime',
+'genres','production_companies','release_date','vote_count','vote_average','release_year','budget_adj','revenue_adj'])
+
+q00 = text('''SELECT * FROM movies ORDER BY uid LIMIT 50;''')
 res00=db.execute_dql_commands(q00)
 d00 = []
 for i in res00:
     d00.append([i.uid, i.idi, i.imdb_id, i.popularity, i.budget, i.revenue, i.original_title, i.actor_name, i.director_name, i.runtime, i.genres, i.release_date, i.vote_count, i.vote_average, i.release_year, i.budget_adj, i.revenue_adj])
 df00=pd.DataFrame(data=d00,columns=['uid', 'idi', 'imdb_id', 'popularity', 'budget', 'revenue', 'original_title', 'actor_name', 'director_name', 'runtime', 'genres', 'release_date', 'vote_count', 'vote_average', 'release_year', 'budget_adj', 'revenue_adj'])
+
+def create_table():
+    fig123 = go.Figure(data=[go.Table(
+        header=dict(values=df00.columns, align='left'),
+        cells=dict(values=df00.values.T, align='left'))
+    ]
+    )
+    fig123.update_layout(paper_bgcolor="#e5ecf6", margin={"t":2, "l":2, "r":2, "b":0}, height=1000)
+    return fig123
+
+def create_rtable():
+    fig321 = go.Figure(data=[go.Table(
+        header=dict(values=dfr00.columns, align='left'),
+        cells=dict(values=dfr00.values.T, align='left'))
+    ]
+    )
+    fig321.update_layout(paper_bgcolor="#e5ecf6", margin={"t":2, "l":2, "r":2, "b":0}, height=1000)
+    return fig321
 
 q001 = text('''SELECT DISTINCT(original_title),budget
 ,budget_adj FROM movies ORDER BY budget DESC LIMIT 15;''')
@@ -73,22 +102,13 @@ for i in res002:
     d002.append(i.original_title)
     v002.append(i.revenue)
     r002.append(i.revenue_adj)
-
-def create_table():
-    fig = go.Figure(data=[go.Table(
-        header=dict(values=df00.columns, align='left'),
-        cells=dict(values=df00.values.T, align='left'))
-    ]
-    )
-    fig.update_layout(paper_bgcolor="#e5ecf6", margin={"t":2, "l":2, "r":2, "b":0}, height=600)
-    return fig
-
+    
 ############### DB QURIES FOR TAB 1 #####################
 q5 = text('''SELECT DISTINCT(g.genres),m.popularity, m.revenue
 FROM movie m
 JOIN movie_genres mg ON m.uid = mg.movie_id
 JOIN genres g ON mg.genre_id = g.genre_id
-WHERE m.revenue > 0 AND m.popularity IS NOT NULL
+WHERE m.revenue > 870000 AND m.popularity IS NOT NULL
 ORDER BY m.popularity DESC;''')
 res5 = db.execute_dql_commands(q5)
 d5 = []
@@ -110,7 +130,7 @@ for i in res1:
     v1.append(i.movie_count)
 ################################
 q2 = text('''SELECT m.original_title, (m.revenue / m.budget) AS profit_margin
-FROM movie m WHERE m.budget > 0 AND m.revenue > 0
+FROM movie m WHERE m.budget > 3000000.0 AND m.revenue >870000
 ORDER BY profit_margin DESC LIMIT 5;''')
 res2 = db.execute_dql_commands(q2)
 v2 = []
@@ -128,7 +148,6 @@ SELECT d.director_name, COUNT(md.movie_id) AS movie_count
 FROM directors d
 INNER JOIN movie_directors md ON d.director_id = md.director_id
 INNER JOIN top_grossing_movies tgm ON md.movie_id = tgm.uid
-INNER JOIN movie m ON tgm.uid = m.uid
 GROUP BY d.director_name ORDER BY movie_count DESC LIMIT 5;''')
 r3 = []
 v3 = []
@@ -150,7 +169,6 @@ for i in res13:
     d13.append(i.original_title)
     v13.append(i.round)
     r13.append(i.vote_count)
-    
 ############### DB QURIES FOR TAB 2 #####################
 q4 = text('''WITH sci_fi_movies AS (
     SELECT m.uid
@@ -164,18 +182,20 @@ FROM actors a
 JOIN movie_actors ma ON a.actor_id = ma.actor_id
 JOIN sci_fi_movies sfm ON ma.movie_id = sfm.uid
 JOIN movie m ON sfm.uid = m.uid
-GROUP BY a.actor_name   ORDER BY avg_vote DESC LIMIT 1;''')
+GROUP BY a.actor_name   ORDER BY avg_vote DESC LIMIT 10;''')
 res4 = db.execute_dql_commands(q4)
+v4 = []
+r4 = []
 for i in res4:
-    l4 = i.actor_name
-    r4 = i.avg_vote
+    v4.append(i.actor_name)
+    r4.append(i.avg_vote)
 ################################
 q6 = text('''SELECT g.genres, SUM(m.revenue) AS Total_Revenue
 FROM movie m
 JOIN movie_genres mg ON m.uid = mg.movie_id 
 JOIN genres g ON mg.genre_id = g.genre_id
 GROUP BY g.genres
-ORDER BY Total_Revenue DESC LIMIT 9;''')
+ORDER BY Total_Revenue DESC LIMIT 5;''')
 res6 = db.execute_dql_commands(q6)
 r6 = []
 v6 = []
@@ -207,7 +227,6 @@ v11 = []
 for i in res11:
     r11.append(i.genres)
     v11.append(i.avg_popularity)
-    
 ############### DB QURIES FOR TAB 3 #####################
 q15=text('''SELECT g.genres, COUNT(m.uid) AS high_budget_movie_count
 FROM movie m
@@ -223,22 +242,30 @@ for i in res15:
     v15.append(i.genres)
     r15.append(i.high_budget_movie_count)
 #################################
-q16=text("SELECT CORR(popularity, vote_average) FROM movie;")
+q16 = text('''SELECT distinct(m.vote_count),a.actor_name,m.popularity
+FROM movie m
+JOIN movie_actors ma ON m.uid = ma.movie_id
+JOIN actors a ON ma.actor_id = a.actor_id
+WHERE  m.vote_count IS NOT NULL
+ORDER BY m.vote_count DESC;
+''')
 res16=db.execute_dql_commands(q16) 
+d16 = []
 for i in res16:
-    v16 = i.corr
-r16 = "Corr Score"
+    d16.append([i.vote_count,i.popularity,i.actor_name])
+df16 = pd.DataFrame(d16,columns=['Vote_Count','Popularity_Score','Actor_Name'])
 #################################
 q19=text('''SELECT EXTRACT(YEAR FROM release_date) AS release_year, 
 ROUND(AVG(vote_average),3) AS avg_rating
 FROM movie
 GROUP BY release_year
 ORDER BY avg_rating DESC
-LIMIT 1;''')
+LIMIT 4;''')
 res19=db.execute_dql_commands(q19)
+d19 = []
 for i in res19:
-    v19 = i.release_year
-    r19 = i.avg_rating
+    d19.append([i.release_year,i.avg_rating])
+df19 = pd.DataFrame(data=d19,columns =['Release Year','Avg Movie Rating'])
 #################################
 q14 = text('''SELECT a.actor_name, SUM(m.revenue) AS total_revenue
 FROM actors a
@@ -254,13 +281,12 @@ for i in res14:
     v14.append(i.actor_name)
     r14.append(i.total_revenue)
 #################################
-q20 = text('''SELECT d.director_name, SUM(m.vote_count) AS total_vote_count
-FROM directors d
-JOIN movie_directors md ON d.director_id = md.director_id
-JOIN movie m ON md.movie_id = m.uid
-GROUP BY d.director_name
-ORDER BY total_vote_count DESC LIMIT 20;
-''')
+    q20 = text('''SELECT d.director_name, SUM(m.vote_count) AS total_vote_count
+    FROM directors d
+    JOIN movie_directors md ON d.director_id = md.director_id
+    JOIN movie m ON md.movie_id = m.uid
+    GROUP BY d.director_name
+    ORDER BY total_vote_count DESC LIMIT 10;''')
 res20 = db.execute_dql_commands(q20)
 d20 =[]
 v20 = []
@@ -273,14 +299,23 @@ df20=pd.DataFrame(data=d20,columns=['Director Name','Total Vote Count'])
 
 #################################
 q21 = text('''SELECT ROUND((EXTRACT(YEAR FROM release_date) / 10 * 10),0) AS decade, 
-       original_title, ROUND(popularity,2)
-FROM movie
-ORDER BY decade, popularity DESC;''')
+       original_title, ROUND(popularity,2) FROM movie
+ORDER BY decade,popularity DESC;''')
 res21=db.execute_dql_commands(q21)
 d21=[]
 for i in res21:
     d21.append([i.decade,i.original_title,i.round])
 df21=pd.DataFrame(data=d21,columns=['Year','Movie Title','Popularity Index'])
+
+q111 = text("select corr(popularity,revenue) from movie;")
+res111 = db.execute_dql_commands(q111)
+for i in res111:
+    r111 = i.corr
+
+q112 = text("select corr(popularity,vote_count) from movie;")
+res112 = db.execute_dql_commands(q112)
+for i in res112:
+    r112 = i.corr
 
 ############### PLOTLY FIGURES FOR TAB 1 #####################
 def qq1():
@@ -289,58 +324,125 @@ def qq1():
     y=r1,
     orientation='h'))
     fig1.update_layout(
-    title="Directors with most number of films directed",
+    title={
+        "text": "Directors with Most Number of Films",
+        "x": 0.5,
+        "xanchor": "center",
+        "yanchor": "top",
+        "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
+    },
     xaxis_title="Number of Films",
-    yaxis_title="Director Name")
+    yaxis_title="Director Name",
+    autosize=True)
+
+    fig1.update_annotations([
+        dict(
+            x=0.5,
+            y=1.15,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            align="center",
+            borderpad=10
+        )
+    ])
     return fig1
 
 def t1p0():
     return dcc.Graph(figure=qq1())
 
 t1p1 = dcc.Graph(
-        id='t1p1',
-        figure = {
-            'data':[
-                go.Scatter(
-                    x=df5.popularity_score,
-                    y=df5.box_office_revenue,
-                    mode = 'markers'
-                )
-            ],
-            'layout':go.Layout(
-                title = 'Correlation Between Popularity Scores and Revenue',
-                xaxis = {'title':'Popularity Scores'},
-                yaxis = {'title':'Box Office Revenues'}
+    id='t1p1',
+    figure={
+        'data': [
+            go.Scatter(
+                x=df5.popularity_score,
+                y=df5.box_office_revenue,
+                mode='markers',
+                name='Data Points'
             )
+        ],
+        'layout': go.Layout(
+            autosize=True,
+            title={
+                'text': "Correlation Between Movie Popularity and its Revenue across Different Genres",
+                'xanchor': 'center',
+                'yanchor': 'top',
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
         }
-    )
-
+            },
+            xaxis={'title': 'Popularity Scores'},
+            yaxis={'title': 'Box Office Revenues'},
+            annotations=[
+                {
+                    'x': 1,
+                    'y': 1,
+                    'xref': 'paper',
+                    'yref': 'paper',
+                    'text': f'Correlation Coefficient: {r111:.4f}',
+                    'showarrow': False,
+                    'xanchor': 'right',
+                    'yanchor': 'top',
+                    'font': {
+                        'size': 16,
+                        'color': 'red'
+                    }
+                }
+            ]
+        )
+    }
+)
+           
 t1p2 = dcc.Graph(
         id = 't1p2',
+        config={'responsive': True}, 
         figure = {
             'data' : [
                 {'x': v2, 'y':r2,'type':'hist'},
             ],
             'layout':{
-                'title': 'Top 5 Movies with the HIGHEST Profit Margin'
+                'title': 'Top 5 Movies with the HIGHEST Profit Margin',
+                'autosize': True,
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        },
+                
             }
         }
-    )
+)
+
 
 t1p3 = dcc.Graph(
         id = 't1p3',
+        config={'responsive': True}, 
         figure = {
             'data' : [
                 {'x': r3, 'y':v3,'type':'bar'},
             ],
             'layout':{
-                'title': 'Directors having most movies in the top 100 grossing films'
+                'title': 'Directors having Most Movies in the Top 100 Grossing Films',
+                'autosize': True,
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
         }
     )
 
 t1p4 = dcc.Graph(
     id = 't1p4',
+    config={'responsive': True}, 
     figure = {
         'data' : [
             {'x' : d13,'y':r13,'type':'bar','name':'Vote Count'},
@@ -348,46 +450,89 @@ t1p4 = dcc.Graph(
                 
             ],
         'layout':{
-                'title': 'Top 10 Movies with the Highest Popularity-to-Vote Ratio.'
+                'title': 'Top Movies with the Highest Popularity-to-Vote Ratio.',
+            'autosize': True,
+            "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
     }
 )
 
 ############### PLOTLY FIGURES FOR TAB 2 #####################
+
 t2p1 = dcc.Graph(
-        id='t2p1',
-        figure={
-            'data': [
-                go.Pie(
-                    labels=[l4],
-                    values=[r4],
-                    showlegend=False,
-                    textinfo='label+value',
-                    hoverinfo='label+value+percent'
-                )
-            ]
+        id = 't2p2',
+        config={'responsive': True}, 
+        figure = {
+            'data' : [
+                {'x': v4, 'y':r4,'type':'bar'},
+            ],
+            'layout':{
+                'title': 'Actors having the Highest Avg Vote in Sci-Fi Movies',
+                'autosize':True,
+                 "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
         }
-)
+            }
+        }
+    )
+
 
 t2p2 = dcc.Graph(
         id = 't2p2',
+        config={'responsive': True}, 
         figure = {
             'data' : [
-                {'x': r6, 'y':v6,'type':'bar'},
+                {'x': r6, 'y':v6,'type':'hist'},
             ],
             'layout':{
-                'title': 'Total Box Office Revenue across Different Genres'
+                'title': 'Box Office Revenue across Different Genres',
+                'autosize':True,
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
         }
     )
 
 def qq9():
-    fig9 = px.line(df9, x='Release Date', y='Popularity', title='Popularity Scores of the films released before 2000s', markers=True)
+    fig9 = px.line(df9, x='Release Date', y='Popularity', markers=True)
     fig9.update_layout(
+    title={
+        "text":"Popularity Scores of the Films released before 2000s",
+        "x": 0.5,
+        "xanchor": "center",
+        "yanchor": "top",
+        "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
+    },
     xaxis_title='Release Date',
     yaxis_title='Popularity',
+    autosize=True,
     xaxis=dict(tickformat='%Y-%m-%d'),
     template='plotly_white')
+
+    fig9.update_annotations([
+        dict(
+            x=0.5,
+            y=1.15,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            align="center",
+            borderpad=10
+        )
+    ])
     return fig9
 
 def t2p3():
@@ -396,8 +541,32 @@ def t2p3():
 def qq11():
     fig11 = px.line(x=v11, y=r11, title='Top GENRES with their Average Popularity Score')
     fig11.update_layout(
+    title={
+        "text":"Top GENRES with their Average Popularity Scores",
+        "x": 0.5,
+        "xanchor": "center",
+        "yanchor": "top",
+        "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
+    },
     xaxis_title='Average Popularity Score',
-    yaxis_title=' ')
+    yaxis_title=' ',
+    autosize=True,
+    )
+    fig11.update_annotations([
+        dict(
+            x=0.5,
+            y=1.15,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            align="center",
+            borderpad=10
+        )
+    ])
     return fig11
 
 def t2p4():
@@ -405,28 +574,42 @@ def t2p4():
 
 t2p5 = dcc.Graph(
     id = 't2p5',
+    config={'responsive': True}, 
     figure = {
         'data' : [
-            {'x' : d001,'y':r001,'type':'hist','name':'Adjusted Budget'},
+            {'x' : d001,'y':r001,'type':'hist','name':'Adj. Budget'},
             {'x' : d001,'y':v001,'type':'hist','name':'Budget'},
                 
             ],
         'layout':{
-                'title': "Top Movie's Actual Budget and the Budget adjusted for inflation"
+                'title': "Top Movie's Budget and the Budget Adjusted for Inflation",
+                'autosize':True,
+            "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
         }
     )
 
 t2p6 = dcc.Graph(
     id = 't2p6',
+    config={'responsive': True}, 
     figure = {
         'data' : [
-            {'x' : d002,'y':r002,'type':'hist','name':'Adjusted Revenue'},
+            {'x' : d002,'y':r002,'type':'hist','name':'Adj. Revenue'},
             {'x' : d002,'y':v002,'type':'hist','name':'Revenue'},
                 
             ],
         'layout':{
-                'title': "Top Movie's Actual Revenue and the Revenue adjusted for inflation"
+                'title': "Top Movie's Revenue and the Revenue Adjusted for Inflation",
+                'autosize':True,
+            "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
         }
     )
@@ -434,80 +617,190 @@ t2p6 = dcc.Graph(
 ############### PLOTLY FIGURES FOR TAB 3 #####################
 t3p1 = dcc.Graph(
         id='t3p1',
-        figure={
-            'data': [
-                go.Pie(
-                    labels=[r16],
-                    values=[v16],
-                    hole=0.5,  
-                    showlegend=False,
-                    textinfo='label+value',
-                    hoverinfo='label+value+percent'
+        figure = {
+            'data':[
+                go.Scatter(
+                    x=df16.Popularity_Score,
+                    y=df16.Vote_Count,
+                    mode = 'markers'
                 )
-            ]
+            ],
+            'layout': go.Layout(
+            autosize=True,
+            title={
+                'text': 'Correlation Between Popularity and Vote Count for different Actors',
+                'xanchor': 'center',
+                'yanchor': 'top',
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
         }
+            },
+            xaxis = {'title':'Popularity Scores'},
+            yaxis = {'title':'Vote Count'},
+            annotations=[
+                {
+                    'x': 1,
+                    'y': 1,
+                    'xref': 'paper',
+                    'yref': 'paper',
+                    'text': f'Correlation Coefficient: {r112:.4f}',
+                    'showarrow': False,
+                    'xanchor': 'right',
+                    'yanchor': 'top',
+                    'font': {
+                        'size': 16,
+                        'color': 'red'
+                    }
+                }
+            ]
+        )
+    }
 )
-
+           
 def qq15():
     fig15 = go.Figure(go.Bar(
     x=r15,
     y=v15,
     orientation='h'))
     fig15.update_layout(
-    title="Number of High Budget Movies in each Genre",
+    title={
+        "text":"Number of High Budget Films in the Top Genres",
+        "x": 0.5,
+        "xanchor": "center",
+        "yanchor": "top",
+        "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
+    },
     xaxis_title="Number of Films",
-    yaxis_title="Genre")
+    yaxis_title="Genre",
+    autosize=True,
+    )
+    fig15.update_annotations([
+        dict(
+            x=0.5,
+            y=1.15,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            align="center",
+            borderpad=10
+        )
+    ])
     return fig15
 
 def t3p2():
     return dcc.Graph(figure=qq15())
 
-t3p3 = dcc.Graph(
-        id='t2p1',
-        figure={
-            'data': [
-                go.Pie(
-                    labels=[v19],
-                    values=[r19],
-                    showlegend=False,
-                    hole=0.6,  
-                    textinfo='label+value',
-                    hoverinfo='label+value+percent'
-                )
-            ]
+def qq19():
+    fig19 = px.line(df19, x='Release Year', y='Avg Movie Rating', markers=True)
+    fig19.update_layout(
+        title={
+        "text":"Top Average Movie Ratings",
+        "x": 0.5,
+        "xanchor": "center",
+        "yanchor": "top",
+            "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
         }
-)
+    },
+        xaxis_title='Release Year',
+        yaxis_title='Average Rating',
+        xaxis=dict(tickformat='%Y', automargin=True),
+        yaxis=dict(automargin=True),
+        autosize=True
+    )
+    fig19.update_annotations([
+        dict(
+            x=0.5,
+            y=1.15,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            align="center",
+            borderpad=10
+        )
+    ])
+    return fig19
+
+def t3p3():
+    return dcc.Graph(figure=qq19())
+
 
 t3p4 = dcc.Graph(
         id = 't3p4',
+        config={'responsive': True}, 
         figure = {
             'data' : [
                 {'x': v14, 'y':r14,'type':'bar'},
             ],
             'layout':{
-                'title': 'Top Actors with their highest Total Revenue across all the films they have acted in'
+                'title': 'Top Actors with their Highest Total Revenue across all the films they have acted in',
+                'autosize':True,
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
         }
     )
 
 t3p5 = dcc.Graph(
-        id = 't1p2',
+        id = 't3p5',
+        config={'responsive': True}, 
         figure = {
             'data' : [
                 {'x': v20, 'y':r20,'type':'hist'},
             ],
             'layout':{
-                'title': 'Top 5 Movies with the HIGHEST Profit Margin'
+                'title': 'Top Directors with their Cumulative Vote Counts',
+                'autosize':True,
+                "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
             }
         }
     )
 
 def qq21():
     yearly_avg = df21.groupby('Year')['Popularity Index'].mean().reset_index()
-    fig21 = px.line(yearly_avg, x='Year', y='Popularity Index', title='Average Movie Popularity Index (1960-2015)')
+    fig21 = px.line(yearly_avg, x='Year', y='Popularity Index')
     fig21.update_layout(
+    title={
+        "text":"Average Popularity Index of the Movies in the Past (1960-2015)",
+        "x": 0.5,
+        "xanchor": "center",
+        "yanchor": "top",
+        "font": {
+            "color": "black",
+            "family": "Arial",
+            "weight": "bold"
+        }
+    },
     xaxis_title='Year',
-    yaxis_title='Average Popularity Index',)
+    yaxis_title='Average Popularity Index',
+    autosize=True,
+    )
+    fig21.update_annotations([
+        dict(
+            x=0.5,
+            y=1.15,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            align="center",
+            borderpad=10
+        )
+    ])
     return fig21
 
 def t3p6():
@@ -518,62 +811,60 @@ app = dash.Dash(__name__, external_stylesheets=["https://stackpath.bootstrapcdn.
 
 auth = dash_auth.BasicAuth(app,USER_PASS_MAPPING)
 
-server = app.server
-
-def create_graph(title):
-    return dcc.Graph(
-        figure=go.Figure(
-            data=[go.Scatter(x=[1, 2, 3], y=[4, 1, 3], mode='lines+markers')],
-            layout=go.Layout(title=title)
-        )
-    )
-
 def create_tab1_content():
     return html.Div([
         html.Div([html.Br(),
-            html.Div([html.Br(),t1p0(),html.H4('''Woody Allen with 230 films becomes the Director with most number of films.
-            Next would be Clint Eastwood with 171 films directed.''',className="mt-3",style={"wordWrap": "break-word","color":"#4811bf"}),]
-                     , className="col-md-6 col-sm-12"),
-            html.Div([html.Br(),t1p1,html.H4('''We can infer that there is a Movie with only 9.4 Popularity Score but still managed to claim 2.7 Billion Box Office Revenue. 
-            At the same time, there's another Movie with 28.4 Popularity Score but managed only to collect 378 Million Box Office Revenue.'''
-                ,className="mt-3",style={"wordWrap": "break-word","color":"#eb2710"}),], className="col-md-6 col-sm-12"),
+            html.Div([html.Br(),t1p0(),html.H5('''Woody Allen with 46 films becomes the Director with most number of films.
+            Next would be Clint Eastwood with 34 films directed.''',className="mt-3",style={"wordWrap": "break-word","color":"#4811bf"}),]
+                     , className="col-md-5 col-sm-12"),
+            html.Div([html.Br(),t1p1,html.H5('''We can infer that, there is a particular Genre with only 9.4 Popularity Score i.e Very Less Popularly Known Genre
+            but still managed to collect 2.7 Billion Box Office Revenue.At the same time, there's another Genre with 
+            28.4 Popularity Score i.e Very Popular Genre but managed to collect only 378 Million Box Office Revenue.'''
+                ,className="mt-3",style={"wordWrap": "break-word","color":"#ff5733"}),], className="col-md-7 col-sm-12"),
         ], className="row"),
-         html.Div([
-            html.Div([html.Br(),t2p6,html.Br(),], className="col-12 text-center"),
-        ], className="row"),
+
         html.Div([
-            html.Div([t1p2,html.H4('''We can conclude that the movie - "The Karate Kid, Part II" stands away from the rest of the competitors by large margin.'''
-                ,className="mt-3",style={"wordWrap": "break-word","color":"#dd810c"}),], className="col-md-6 col-sm-12"),
-            html.Div([t1p3,html.H4('''Top Grossing Films obtained in terms of Box Office Revenue the movie collected and 
-            Peter Jackson with 30 films becomes the Director having most number of movies in the Top 100.''',className="mt-3",style={"wordWrap": "break-word","color":"#3df505"}),], className="col-md-6 col-sm-12"),
+            html.Div([html.Br(),t3p5,html.H5("Christopher Nolan has the Highest Cumulative Vote Count of 41,759"
+                            ,className="mt-3",style={"wordWrap": "break-word","color":"#e03910"}),] , className="col-md-6 col-sm-12"),
+            html.Div([html.Br(),t1p3,html.H5('''We can conclude Peter Jackson have 6 films in the Top 100 Grossing Films.
+            Next comes George Lucas, David Yates and Christopher Nolan each having 4 films.''',
+                                   className="mt-3",style={"wordWrap": "break-word","color":"#045457"}),], className="col-md-6 col-sm-12"),
         ], className="row"),
         
         html.Div([
-            html.Div([t1p4,html.Br(),html.Br(),], className="col-12 text-center"),
+            html.Div([html.Br(),t2p6,html.H4('''We can infer the films "Titanic" & "The Net" have a large margin between the Revenue and the Adjusted Revenue.''',
+                                   className="mt-3",style={"wordWrap": "break-word","color":"#055d18"}),], className="col-12 text-center"),
         ], className="row"),
+        
+        html.Div([
+            html.Div([html.Br(),t2p5,html.Br(),], className="col-12 text-center"),
+        ], className="row"),
+        
     ], className="container-fluid")
 
 def create_tab2_content():
     return html.Div([html.Br(),
         html.Div([
-            html.Div([t2p1,html.H4("Actor having the Highest Average Vote in Scientific-Fictional Movies",className="mt-3"),]
-                     , className="col-md-4 col-sm-12",style={"wordWrap": "break-word","color":"#f57105"}),
-            html.Div([t2p2,html.H4("We can infer that Comedy and Drama Genre films out performed near the Box Office",className="mt-3"),]
-                     , className="col-md-8 col-sm-12",style={"wordWrap": "break-word","color":"#3df505"}),
+            html.Div([
+            html.Div([html.Br(),t2p3(),html.H4('''We can infer that there was a Film released on 
+            20th March 1977 which acquired the maximum Popularity Score. The film is "Star Wars".'''
+                            ,className="mt-3",style={"wordWrap": "break-word","color":"#69c908"}),html.Br(),], className="col-12 text-center"),
         ], className="row"),
-                     
-        html.Div([
-            html.Div([html.Br(),t2p5,html.Br(),], className="col-12 text-center"),
+            
+            html.Div([t2p1,html.H5('''We can conclude there are 4 Actors - [Jon Hamm, Oona Chaplin, Rafe Spall, Janet Montgomery] 
+            who have the Highest Average Voting of 8.80 in the Scientific Fictional Films.''',className="mt-3",style={"wordWrap": "break-word","color":"#f57105"}),]
+                     , className="col-md-6 col-sm-12"),
+            html.Div([t2p2,html.H5("We can infer that Comedy and Drama Genre Films out performed near the Box Office",className="mt-3",style={"wordWrap": "break-word","color":"#75990e"}),]
+                     , className="col-md-6 col-sm-12"),
         ], className="row"),
-                     
+                                         
         html.Div([
-            html.Div([html.Br(),t2p3(),html.Br(),], className="col-12 text-center"),
+            html.Div([html.Br(),t2p4(),html.H4('''We can say that the People are more
+            inclinded towards Adventurous, Science Fictional Thrillers. More Popularity was gained by the Action Drama Films.'''
+                            ,className="mt-3",style={"wordWrap": "break-word","color":"#6411c2"}),], className="col-12 text-center"),
         ], className="row"),
-                     
-        
-        
-        html.Div([
-            html.Div([html.Br(),t2p4(),html.Br(),], className="col-12 text-center"),
+         html.Div([
+            html.Div([t1p4,html.Br(),html.Br(),], className="col-12 text-center"),
         ], className="row"),
         
     ], className="container-fluid")
@@ -581,43 +872,57 @@ def create_tab2_content():
 def create_tab3_content():
     return html.Div([
          html.Div([
-            html.Div([html.Br(),t3p6(),html.Br(),], className="col-12 text-center"),
+            html.Div([html.Br(),t3p6(),html.H4("We can clearly visualize that through the years, there was a steady rise in the Popularity of Films."
+                            ,className="mt-3",style={"wordWrap": "break-word","color":"#450b52"}),], className="col-12 text-center"),
         ], className="row"),
         
         html.Div([
-            html.Div([html.Br(),t3p1,html.H4("The Correlation between a Movie's Popularity Score and it's Average Vote Count is 0.209",className="mt-3"),]
-                     , className="col-md-3 col-sm-12",style={"wordWrap": "break-word","color":"#59b507"}),
-            html.Div([html.Br(),t3p2()], className="col-md-6 col-sm-12"),
-            html.Div([html.Br(),t3p3,html.H4("1973 is the year with HIGHEST Average Movie Rating of 6.704",className="mt-3"),]
-                     , className="col-md-3 col-sm-12",style={"wordWrap": "break-word","color":"#25028d"}),
+            html.Div([html.Br(),t3p1,html.H5('''We can clearly see a near to Unity Correlation Coefficient 
+            between an Actor's Popularity Score and his/her Vote Counts. This tells who has much votes that one is more Popular.''',className="mt-3",style={"wordWrap": "break-word","color":"#59b507"}),]
+                     , className="col-md-6 col-sm-12"),
+            html.Div([html.Br(),t3p3(),html.H5('''We can conclude that the year 1973 released
+            many Good Rated Films. Recorded the Highest Average Rating of 6.7''',className="mt-3",style={"wordWrap": "break-word","color":"#25028d"}),]
+                     , className="col-md-6 col-sm-12"),
         ], className="row"),   
         
         html.Div([
-            html.Div([html.Br(),t3p4,html.H4("Cameron Diaz stoods first having 10,491,168,565 (10.5 Billion approx) Total Revenue generated from all her Films."
-                            ,className="mt-3"),] , className="col-12 text-center",style={"wordWrap": "break-word","color":"#ba007f"}),
+            html.Div([html.Br(),t3p4,html.H4("Harrison Ford stoods first having 8,922,840,695 (8.9 Billion approx) Total Revenue."
+                            ,className="mt-3",style={"wordWrap": "break-word","color":"#ba007f"}),] , className="col-12 text-center"),
         ], className="row"),
-
         html.Div([
-            html.Div([html.Br(),t3p5,html.H4("Christopher Nolan stands first having the Highest Cumulative Vote Count of 208K for his Movies."
-                            ,className="mt-3"),] , className="col-12 text-center",style={"wordWrap": "break-word","color":"#e03910"}),
+            html.Div([html.Br(),t1p2,html.H5(''' E.T. the Extra-Terrestrial Film stands at the peak having the maximum Revenue 
+            to Budget Ratio''' ,className="mt-3",style={"wordWrap": "break-word","color":"#059a0e"}),], className="col-md-6 col-sm-12"),
+             html.Div([html.Br(),t3p2(),html.H5("There are 170 High Budget Films directed in Comedy Genre. "
+                            ,className="mt-3",style={"wordWrap": "break-word","color":"#6411c2"}),], className="col-md-6 col-sm-12"),
         ], className="row"),                       
         
     ], className="container-fluid")
 
 def create_tab4_content():
     return html.Div([html.Br(),
-        html.H4("The Dataset used in depicting the plots and insights"),        
+        html.H4("The Dataset used in depicting the Plots and Insights."),        
         html.Div([
-            html.Div([html.Br(),dcc.Graph(id="dataset", figure=create_table()),html.Br(),html.Br(),], className="col-12 text-center"),
+            html.Div([html.Br(),dcc.Graph(id="pdata", figure=create_table()),html.Br(),html.Br(),], className="col-12 text-center"),
+        ], className="row"),        
+    ], className="container-fluid")
+
+def create_tab5_content():
+    return html.Div([html.Br(),
+        html.H4("The Raw Dataset (before Preprocessing) "),        
+        html.Div([
+            html.Div([html.Br(),dcc.Graph(id="rdata", figure=create_rtable()),html.Br(),html.Br(),], className="col-12 text-center"),
         ], className="row"),        
     ], className="container-fluid")
     
 # DASHBOARD 
 app.layout = html.Div([
     html.Br(),
+    
     html.Div([
-    html.H1("SVS(Shiva Vishnu Sanjiv) DATA ANALYTICS",style={'color':"#890bf8","text-align": "center"}),
-    html.H2("MOVIE DATA ANALYSIS AND INSIGHTS VISUALIZATION",style={'color':"#eb0dcd","text-align": "center"}),
+    html.H1("SVS(Shiva Vishnu Sanjiv) DATA ANALYTICS",style={'color':"#890bf8",
+                        "text-align": "center",'font-weight': "bold",'text-shadow': "2px 2px 4px rgba(0, 0, 0, 0.3)"}),
+    html.H2("MOVIE DATA ANALYSIS AND INSIGHTS VISUALIZATION",style={'color':"#eb0dcd",
+                            "text-align": "center",'font-weight': "bold",'text-shadow': "2px 2px 4px rgba(0, 0, 0, 0.3)"}),
     ]),
     html.Br(),
     dcc.Tabs(id="tabs", value='tab-1', children=[
@@ -625,6 +930,7 @@ app.layout = html.Div([
         dcc.Tab(label='Report 2', value='tab-2'),
         dcc.Tab(label='Report 3', value='tab-3'),
         dcc.Tab(label='Preprocessed Dataset', value='tab-4'),
+        dcc.Tab(label='Raw Dataset', value='tab-5'),
     ]),
     html.Div(id='tabs-content')
 ],style={"background-color": "#e5ecf6"})
@@ -640,6 +946,7 @@ def render_content(tab):
         return create_tab3_content()
     if tab in ['tab-4']:
         return create_tab4_content()
-
+    if tab in ['tab-5']:
+        return create_tab5_content()
 if __name__ == '__main__':
-    app.run_server(debug=False)                        
+    app.run_server(debug=True)                        
