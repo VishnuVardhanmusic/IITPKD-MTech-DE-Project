@@ -17,6 +17,8 @@ aspects of the data.
 2) DataBase Management: PostgreSQL, pgAdmin 4, SQLAlchemy 
 3) Visualization and Dashboard: plotly, dash
 
+## View the Project Report <a href="/SVS Project Report.pdf">SVS Project Report</a>
+
  ## Steps to execute locally
 1) Download the Code  
 2) Ensure all the libraries in the requirements.txt are present (Execute the command >>pip install -r requirements.txt)
